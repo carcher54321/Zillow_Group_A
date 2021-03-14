@@ -1,19 +1,16 @@
 import yagmail
 
-def sendEmail():
+FROM_ADDRESS = 'your_email@gmail.com'
+RECIPIENTS = ['to_email@gmail.com']
+
+def sendEmail(subject, body, receiver, attachments):
     logging.info("Sending an email")
 
-    receiver = "your_email@gmail.com" #receiver
-    body = "This is the log file"
-    
-    log = "logFile.log"  
-    graph = 'graph1.png'
-
-    yag = yagmail.SMTP("your_email@gmail.com") #sender
-    
-    yag.send(
-        to=receiver,
-        subject="Log File",
-        contents=body, 
-        attachments=[log,graph]
-    )
+    yag = yagmail.SMTP(FROM_ADDRESS) #sender
+    for recipient in RECIPIENTS:
+        yag.send(
+            to=recipient,
+            subject=subject,
+            contents=body, 
+            attachments=attachments
+        )
