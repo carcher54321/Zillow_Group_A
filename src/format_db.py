@@ -25,9 +25,9 @@ def get_header_type(d):
         h_init += i + ' '
 
         if col.dtype == int:
-            h_init += 'INT(50)'
+            h_init += 'INT(20)'
         else:
-            h_init += 'VARCHAR(255)'
+            h_init += 'VARCHAR(50)'
 
         if i == d.columns[-1]:
             h_init += ')'
@@ -41,7 +41,7 @@ def get_d_format(n):
     f = '('
     for i in range(n):
         f += '%s'
-        if i == n:
+        if i == n-1:
             f += ')'
         else:
             f += ', '
@@ -61,13 +61,15 @@ def create_table(fname, dbname):
     )
 
     cursor = db.cursor()
-    cursor.execute("CREATE TABLE " + name + header)
+    try:
+        cursor.execute("CREATE TABLE " + name + header)
+    except Exception as e:
+        print('Failed creating table: {}'.format(e))
 
     format = get_d_format(len(data.columns))
-
     for i, row in data.iterrows():
-        sql = 'INSERT INTO ' + name + ' VALUES ' + format
-        cursor.execute(sql, tuple(row))
+        sql = 'INSERT INTO ' + name + ' VALUES '
+        cursor.execute(sql + format, tuple(row))
         db.commit()
 
     cursor.close()
@@ -75,7 +77,10 @@ def create_table(fname, dbname):
 
 def main():
     dbname = 'zillow_group_a'
-    create_db(dbname)
+    try:
+        create_db(dbname)
+    except Exception as e:
+        print("Failed to create database: {}".format(e))
     fnames = os.listdir('../data/')
     for n in fnames:
         create_table(n, dbname)
