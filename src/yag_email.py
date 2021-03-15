@@ -6,7 +6,8 @@ RECIPIENTS = []
 def set_password(email, password):
     global FROM_ADDRESS
     FROM_ADDRESS = email
-    yagmail.register('@gmail.com', password) # registering the email
+    yagmail.register(email, password) # registering the email
+    # is this next line necessary? docs seem like that's not the case
     keyring.set_password('yagmail', email, password)  #setting the password
 
 def sendEmail(sender, subject, body, receiver, attachments):
