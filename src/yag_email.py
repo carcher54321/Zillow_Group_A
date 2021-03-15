@@ -1,8 +1,7 @@
 import yagmail
 import keyring
 
-FROM_ADDRESS = 'your_email@gmail.com'
-RECIPIENTS = ['to_email@gmail.com']
+RECIPIENTS = []
 
 def set_password(email, password):
     global FROM_ADDRESS
@@ -10,10 +9,11 @@ def set_password(email, password):
     yagmail.register('@gmail.com', password) # registering the email
     keyring.set_password('yagmail', email, password)  #setting the password
 
-def sendEmail(subject, body, receiver, attachments):
+def sendEmail(sender, subject, body, receiver, attachments):
     logging.info("Sending an email")
+    RECIPIENTS.append(receiver)
 
-    yag = yagmail.SMTP(FROM_ADDRESS) #sender
+    yag = yagmail.SMTP(sender) #sender
     for recipient in RECIPIENTS:
         yag.send(
             to=recipient,
