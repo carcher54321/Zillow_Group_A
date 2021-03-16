@@ -4,15 +4,17 @@ from difflib import SequenceMatcher
 import tarfile
 import yag_email
 import sys
-# import FileValidation
+from FileValidation import FileValidation
 
-# usage: python prep_file RELATIVE_FILE_NAME
+# usage: python prep_file [FILE_NAME (not path)]
 
 FILE_NAME = 'City_time_series.csv'
 FILE_NAME_ACCURACY = 0.9
 EXTENSION = FILE_NAME.split('.')[-1]
 ROOT = os.path.dirname(os.path.dirname(__file__))
 TAR_PATH = os.path.join(ROOT, 'data_archive.tar')
+EMAIL_SENDER = 'carcher.djangodev@gmail.com'
+EMAIL_RECIPIENTS = ['colin.archer@smoothstack.com']
 
 
 def data_path(relative):
@@ -59,13 +61,17 @@ def main():
     if not extension == EXTENSION:
         logging.error(f'The file {file_name} has the wrong extension. Should be .{EXTENSION}')
         logging.info(f'Will attempt to parse anyway')
-    # validator = FileValidation(data_path(file_name))
-    # success = validator.validate()
-    # if success:
-    #   validator.db_stage()
-    #   archive(file_name)
-    # else:
-    #   log?
+    validator = FileValidation(data_path(file_name))
+    success = validator.validate()
+    if success:
+        logging.info(f'File Pre-validation successful. Beginning Database Stage')
+        db_succ = validator.db_stage()
+        if db_succ:
+            logging.info(f'Successfully staged into database. Archiving to .tar')
+            archive(file_name)
+    else:
+        yag_email.sendEmail(EMAIL_SENDER, validator.get_errors(), '', EMAIL_RECIPIENTS,
+                            [data_path(file_name), log_path()])
 
 
 if __name__ == '__main__':
