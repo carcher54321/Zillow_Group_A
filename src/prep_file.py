@@ -2,7 +2,7 @@ import os
 import logging
 from difflib import SequenceMatcher
 import tarfile
-import yag_email
+import gmail_connect
 import sys
 from FileValidation import FileValidation
 
@@ -33,9 +33,11 @@ def get_data_filenames():
 def match_filename(filenames):
     file_name = None
     if FILE_NAME not in filenames:
+        logging.info(f'Unable to find file {FILE_NAME}, checking data folder for close matches')
         for f in filenames:
             if SequenceMatcher(a=f, b=FILE_NAME).ratio() > FILE_NAME_ACCURACY:
                 file_name = f
+                logging.info(f'Match found! {file_name}')
                 break
         else:
             logging.error(f'File {FILE_NAME} does not exist in data folder')
@@ -69,14 +71,17 @@ def main():
         if db_succ:
             logging.info(f'Successfully staged into database. Archiving to .tar')
             archive(file_name)
+            logging.info(f'Archival success')
     else:
-        yag_email.sendEmail(EMAIL_SENDER, validator.get_errors(), '', EMAIL_RECIPIENTS,
-                            [data_path(file_name), log_path()])
+        gmail_connect.sendEmail(EMAIL_SENDER, validator.get_errors(), '', EMAIL_RECIPIENTS,
+                                [data_path(file_name), log_path()])
 
 
 if __name__ == '__main__':
     try:
         FILE_NAME = sys.argv[1]
+        EXTENSION = FILE_NAME.split('.')[-1]
+        logging.info(f'Beginning validation of file {FILE_NAME}')
     except IndexError:
         logging.error(f'No file name passed, using default {FILE_NAME}')
     main()
