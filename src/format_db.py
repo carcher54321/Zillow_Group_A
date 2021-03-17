@@ -1,33 +1,57 @@
-import mysql.connector
+import cx_Oracle as orc
 import os
 import pandas as pd
-
-
-def create_db(name):
-    db = mysql.connector.connect(
-        host=host,
-        user=user,
-        password=password
-    )
-
-    cursor = db.cursor()
-    cursor.execute("CREATE DATABASE " + name)
-    cursor.close()
+import logging
 
 
 def load_data(fname):
     return pd.read_csv('../data/' + fname)
 
 
+def replace_header(h):
+    header_map = {'InventorySeasonallyAdjusted': 'InvSeasAdj',
+                  'MedianListingPricePerSqft': 'MedLstPrPerSqft',
+                  'MedianListingPrice': 'MedLstPr',
+                  'MedianPctOfPriceReduction': 'MedPctOfPrRed',
+                  'MedianRentalPricePerSqft': 'MedRntPrPerSqft',
+                  'MedianRentalPrice': 'MedRntPr',
+                  'PctOfHomesDecreasingInValues': 'PctOfHomeDecVal',
+                  'PctOfHomesIncreasingInValues': 'PctOfHomeIncVal',
+                  'PctOfListingsWithPriceReductionsSeasAdj': 'PctLstPrRedSeasAdj',
+                  'SingleFamilyResidence': 'SnglFamRes',
+                  'MultiFamilyResidence5PlusUnits': 'MltFmRes5Uts',
+                  'MedianPriceCutDollar': 'MedPrCutDlr',
+                  'PctOfHomesSellingForGain': 'PctOfHmsSlngGain',
+                  'PctOfHomesSellingForLoss': 'PctOfHmsSlngLoss',
+                  'PctOfListingsWithPriceReductions': 'PctOfLstsWitPrRed',
+                  'SingleFamilyResidenceRental': 'SnglFamResRent',
+                  '5BedroomOrMore': '5BedOrMore'}
+
+    if h in header_map.keys():
+        return header_map[h]
+
+    return h
+
+
 def get_header_type(d):
     h_init = '('
     for i, col in d.items():
-        h_init += i + ' '
+        # Oracle only allows column names less than 30 characters
+        header = i
+        if len(i) > 30:
+            prefix = replace_header(i.split('_')[0])
+            suffix = replace_header(i.split('_')[1])
 
-        if col.dtype == int:
-            h_init += 'INT(20)'
-        else:
-            h_init += 'VARCHAR(50)'
+            header = prefix + '_' + suffix
+            if len(header) > 29:
+                print(header + str(len(header)))
+
+        # Date is a reserved word
+        if header == 'Date':
+            header = 'Date_Column'
+
+        h_init += header + ' '
+        h_init += 'VARCHAR2(50)'
 
         if i == d.columns[-1]:
             h_init += ')'
@@ -40,54 +64,87 @@ def get_header_type(d):
 def get_d_format(n):
     f = '('
     for i in range(n):
-        f += '%s'
-        if i == n-1:
+        f += ':' + str(i)
+        if i == n - 1:
             f += ')'
         else:
             f += ', '
     return f
 
 
-def create_table(fname, dbname):
-    name = fname[:-4]
-    data = load_data(fname)
-    header = get_header_type(data)
+class Format_Db:
+    def __init__(self):
+        self.dsn = orc.makedsn('localhost', '1521', service_name='orcl')
+        self.user = 'zillow_group_a'
+        self.password = 'root'
 
-    db = mysql.connector.connect(
-        host=host,
-        user=user,
-        password=password,
-        database=dbname
-    )
+    def create_table(self, fname):
+        table_name = fname[:-4]
+        data = load_data(fname)
 
-    cursor = db.cursor()
-    try:
-        cursor.execute("CREATE TABLE " + name + header)
-    except Exception as e:
-        print('Failed creating table: {}'.format(e))
+        db = orc.connect(
+            user=self.user,
+            password=self.password,
+            dsn=self.dsn
+        )
+        cursor = db.cursor()
 
-    format = get_d_format(len(data.columns))
-    for i, row in data.iterrows():
-        sql = 'INSERT INTO ' + name + ' VALUES '
-        cursor.execute(sql + format, tuple(row))
-        db.commit()
+        sql = "SELECT table_name FROM user_tables WHERE table_name = '" + table_name.upper() + "'"
+        cursor.execute(sql)
 
-    cursor.close()
+        if cursor.fetchone():
+            logging.info('Table {} already exists.'.format(table_name))
+        else:
+            headers = get_header_type(data)
+            sql = 'CREATE TABLE ' + table_name + '' + headers
+            try:
+                cursor.execute(sql)
+                logging.info('Table {} created.'.format(table_name))
+            except Exception as e:
+                logging.error('Failed creating table {}: {}'.format(table_name, e))
 
+        cursor.close()
+        db.close()
+        self.insert_data(data, table_name)
 
-def main():
-    dbname = 'zillow_group_a'
-    try:
-        create_db(dbname)
-    except Exception as e:
-        print("Failed to create database: {}".format(e))
-    fnames = os.listdir('../data/')
-    for n in fnames:
-        create_table(n, dbname)
+    def insert_data(self, data, table_name):
+        db = orc.connect(
+            user=self.user,
+            password=self.password,
+            dsn=self.dsn
+        )
+        cursor = db.cursor()
+
+        sql = 'SELECT * FROM ' + table_name
+        cursor.execute(sql)
+        if cursor.fetchone():
+            logging.info('Table {} already contains data.'.format(table_name))
+        else:
+            format = get_d_format(len(data.columns))
+            try:
+                for i, row in data.iterrows():
+                    row = row.fillna('NaN')
+                    sql = 'INSERT INTO ' + table_name + ' VALUES ' + format
+                    cursor.execute(sql, tuple(row))
+                    db.commit()
+                logging.info('Data written to table {}.'.format(table_name))
+            except Exception as e:
+                logging.error('Failed inserting data into table {}: {}'.format(table_name, e))
+
+        cursor.close()
+        db.close()
+
+    def main(self):
+        fnames = os.listdir('../data/')
+        for n in fnames:
+            self.create_table(n)
 
 
 if __name__ == "__main__":
-    host = 'localhost'
-    user = 'root'
-    password = 'root'
-    main()
+    logging.basicConfig(format='%(asctime)s %(levelname)-4s %(message)s',
+                        filename='../logs/format_db.log',
+                        filemode='w',
+                        level=logging.DEBUG,
+                        datefmt='%Y-%m-%d %H:%M:%S')
+    make_db = Format_Db()
+    make_db.main()
