@@ -18,6 +18,7 @@ class FileValidation:
 
         if isempty :# empty check -> email if empty
             logging.error("The file is empty")
+            self.error = "The File is Empty"
             B = False 
             return B
         else:
@@ -43,6 +44,7 @@ class FileValidation:
                         continue
                     else:
                         logging.error("The required data type: %s and cell data type %s"%(type_list[col_num],type(cell)))
+                        self.error = "Invalid Data Types"
                         return False
 
 
@@ -52,6 +54,7 @@ class FileValidation:
                     else:
                         
                         logging.error("The required data type: %s and cell data type %s"%(type_list[col_num],type(cell)))
+                        self.error = "Invalid Data Types"
                         return False
                 
                 elif type_list[col_num] == "object":
@@ -59,16 +62,19 @@ class FileValidation:
                         continue
                     else:
                         logging.error("The required data type: %s and cell data type %s"%(type_list[col_num],type(cell)))
+                        self.error = "Invalid Data Types"
                         return False
                 
                 else:
                     logging.error("The required data type: %s and cell data type %s"%(type_list[col_num],type(cell)))
+                    self.error = "Invalid Data Types"
             col_num+=1
 
         return True
 
     
-        
+    def get_errors(self):  #returns the error values
+        return self.error
 
     def NAN_replacement(self,df): #replace null values with Nan
         logging.info("Replacing null values to Nan")
