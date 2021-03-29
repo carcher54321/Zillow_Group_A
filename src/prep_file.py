@@ -6,7 +6,7 @@ import gmail_connect
 import sys
 from FileValidation import FileValidation
 
-# usage: python prep_file [FILE_NAME (not path)]
+# usage: python prep_file [DATA_PATH] [FILE_NAME (not path)] [OUT_PATH]
 
 FILE_NAME = 'City_time_series.csv'
 FILE_NAME_ACCURACY = 0.9
@@ -15,10 +15,12 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 TAR_PATH = os.path.join(ROOT, 'data_archive.tar')
 EMAIL_SENDER = 'carcher.djangodev@gmail.com'
 EMAIL_RECIPIENTS = ['colin.archer@smoothstack.com']
+DATA_PATH = os.path.join(ROOT, 'data')
+OUT_PATH = os.path.join(ROOT, 'output')
 
 
 def data_path(relative):
-    return os.path.join(os.path.join(ROOT, 'data'), relative)
+    return os.path.join(DATA_PATH, relative)
 
 
 def log_path():
@@ -72,6 +74,7 @@ def main():
             logging.info(f'Successfully staged into database. Archiving to .tar')
             archive(file_name)
             logging.info(f'Archival success')
+            validator.save_to_csv(os.path.join(OUT_PATH, file_name))
     else:
         gmail_connect.sendEmail(EMAIL_SENDER, validator.get_errors(), '', EMAIL_RECIPIENTS,
                                 [data_path(file_name), log_path()])
@@ -79,9 +82,19 @@ def main():
 
 if __name__ == '__main__':
     try:
-        FILE_NAME = sys.argv[1]
+        DATA_PATH = sys.argv[1]
+        logging.info(f'Data path is {DATA_PATH}')
+    except IndexError:
+        logging.error(f'No Data path passed. Using default')
+    try:
+        FILE_NAME = sys.argv[2]
         EXTENSION = FILE_NAME.split('.')[-1]
         logging.info(f'Beginning validation of file {FILE_NAME}')
     except IndexError:
         logging.error(f'No file name passed, using default {FILE_NAME}')
+    try:
+        OUT_PATH = sys.argv[3]
+        logging.info(f'Data output path is {OUT_PATH}')
+    except IndexError:
+        logging.error('No output path passed. Using default')
     main()
