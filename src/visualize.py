@@ -3,6 +3,16 @@ import sys
 import os
 
 
+orc.init_oracle_client(lib_dir=r'C:\Users\carch\Desktop\instantclient_19_10')
+S_FIPS_MAP = {
+    'MS': 28, 'WV': 54, 'MI': 26, 'AL': 1, 'NM': 35, 'OK': 40, 'VT': 50, 'TN': 47, 'RI': 44, 'WI': 55, 'NY': 36,
+    'DC': 11, 'CT': 9, 'NE': 31, 'WY': 56, 'VA': 51, 'MD': 24, 'HI': 15, 'MT': 30, 'ID': 16, 'KY': 21, 'KS': 20,
+    'LA': 22, 'AK': 2, 'CO': 8, 'PA': 42, 'OR': 41, 'NC': 37, 'IN': 18, 'MO': 29, 'AR': 5, 'ME': 23, 'NH': 33, 'CA': 6,
+    'OH': 39, 'MA': 25, 'NJ': 34, 'IL': 17, 'SD': 46, 'SC': 45, 'TX': 48, 'AZ': 4, 'UT': 49, 'WA': 53, 'FL': 12,
+    'NV': 32, 'DE': 10, 'GA': 13, 'MN': 27, 'IA': 19, 'ND': 38
+}
+
+
 class TableInfo:
 
     def __init__(self, table_name, region_header):
@@ -13,19 +23,21 @@ class TableInfo:
 class DbInfo:
 
     def __init__(self):
-        self.STATE = TableInfo('State_time_series', 'RegionName')
-        self.CITY = TableInfo('City_time_series', 'RegionName')
-        self.COUNTY = TableInfo('County_time_series', 'RegionName')
-        self.METRO = TableInfo('Metro_time_series', 'RegionName')
-        self.NEIGHBORHOOD = TableInfo('Neighborhood_time_series', 'RegionName')
-        self.ZIP = TableInfo('Zip_time_series', 'RegionName')
+        self.STATE = TableInfo('T_State_time_series', 'RegionName')
+        self.CITY = TableInfo('T_City_time_series', 'RegionName')
+        self.COUNTY = TableInfo('T_County_time_series', 'RegionName')
+        self.METRO = TableInfo('T_Metro_time_series', 'RegionName')
+        self.NEIGHBORHOOD = TableInfo('T_Neighborhood_time_series', 'RegionName')
+        self.ZIP = TableInfo('T_Zip_time_series', 'RegionName')
+        self.COUNTY_CW = TableInfo('T_COUNTYCROSSWALK_ZILLOW', '')
+        self.CITY_CW = TableInfo('T_CITIES_CROSSWALK', '')
 
 
 class DbConn:
 
     def __init__(self):
         self.dsn = orc.makedsn('174.104.164.39', '1521', service_name='orcl')
-        self.user = 'zillow_group_a'
+        self.user = 'ali_adam'
         self.password = 'root'
 
         self.db = orc.connect(
@@ -50,6 +62,16 @@ DB_INF = DbInfo()
 CONN = DbConn()
 
 
+def pretty_print(lis, per_line):
+    i = 0
+    ln = len(lis)
+    while i + per_line < ln:
+        print(*lis[i:i+per_line])
+        i += per_line
+    if i < ln - 1:
+        print(*lis[i:])
+
+
 def get_regions(table):
     cursor = CONN.cursor()
     cursor.execute(f'SELECT DISTINCT {table.region_header} FROM {table.name};')
@@ -58,33 +80,57 @@ def get_regions(table):
 
 def get_region_data(table, region):
     cursor = CONN.cursor()
-    cursor.execute(f'SELECT * FROM {table.name} WHERE {table.region_header} = {region}')
+    cursor.execute(f'SELECT * FROM {table.name} WHERE {table.region_header}={region}')
     return cursor.fetchall()
 
 
+def county_get_fips(county, st):
+    cursor = CONN.cursor()
+    cursor.execute('SELECT FIPS FROM T_COUNTYCROSSWALK_ZILLOW WHERE COUNTYNAME=(:county) AND STATEFIPS=(:s_fips)', [county, S_FIPS_MAP[st]])
+    fips = cursor.fetchone()
+    return fips[0]
+
+
+def city_get_id(city, st):
+    cursor = CONN.cursor()
+    cursor.execute('SELECT UNIQUE_CITY_ID FROM T_CITIES_CROSSWALK WHERE CITY=(:city) and STATE_ABBR=(:s)', [city, st])
+    ident = cursor.fetchone()
+    return ident[0]
+
+
+def city_get_county(city, st):
+    cursor = CONN.cursor()
+    cursor.execute('SELECT COUNTY FROM T_CITIES_CROSSWALK WHERE CITY=(:city) and STATE_ABBR=(:s)', [city, st])
+    county_n = cursor.fetchone
+    return county_n[0]
+
+
 def state_get_counties(st):
-    pass
+    cursor = CONN.cursor()
+    cursor.execute('SELECT COUNTYNAME FROM T_COUNTYCROSSWALK_ZILLOW WHERE STATEFIPS=(:s_fips)', [S_FIPS_MAP[st]])
+    counties = cursor.fetchall()
+    return [s[0] for s in counties]
 
 
 def state_get_cities(st):
-    pass
+    cursor = CONN.cursor()
+    cursor.execute('SELECT CITY from T_CITIES_CROSSWALK WHERE STATE_ABBR = (:s_abbr)', [st])
+    cities = cursor.fetchall()
+    return [s[0] for s in cities]
 
 
 def state_get_zips(st):
-    pass
-
-
-# county format: ForsythNC
-def county_get_zips(county):
-    state = county[-2:]
-    county = county[:-2]
+    cursor = CONN.cursor()
+    cursor.execute('SELECT ZIP FROM T_CITITES_CROSSWALK WHERE STATE_ABBR=(s_abbr) AND ZIP IS NOT NULL', [st])
+    zips = cursor.fetchall()
+    return [s[0] for s in zips]
 
 
 def rent_figure(level, enclosing, enclosed):
     """
     Create a figure comparing rental efficiency across areas
     :param level: enclosed/enclosing e.g. zip/state, county/state
-    :param enclosing: Enclosing state or county. Counties in format CountyST
+    :param enclosing: Enclosing state. e.g. NC
     :param enclosed: A list of areas at enclosed level within enclosing
     :return:
     """
@@ -98,14 +144,17 @@ def city_num_sales(city):
 
 # city format cityST e.g. newyorkNY
 def city_county_state(city):
-    pass
+    state_abbr = city[-2:]
+    city = city[:-2]
+    city_id = city_get_id(city, state_abbr)
+    county_fips = county_get_fips(city_get_county(city, state_abbr), state_abbr)
 
 
 def home_val_incr(level, enclosing, enclosed):
     """
     Create a figure comparing rental efficiency across areas
     :param level: enclosed/enclosing e.g. zip/state, county/state
-    :param enclosing: Enclosing state or county. Counties in format CountyST
+    :param enclosing: Enclosing state. e.g. NC
     :param enclosed: A list of areas at enclosed level within enclosing
     :return:
     """
@@ -128,10 +177,14 @@ class ArgParser:
                             'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'VI', 'WA', 'WV', 'WI', 'WY']
 
     def no_args(self):
-        print(*self.possibilities)
+
         choice = input('Which visualization would you like?: ')
         if choice in self.possibilities:
             self.possibilities[choice]()
+        elif choice.lower() == 'y':
+            print(*self.possibilities)
+        elif choice.lower() == 'n':
+            exit(0)
         else:
             print('Invalid selection')
             self.no_args()
@@ -155,11 +208,9 @@ class ArgParser:
             return state_get_cities(enclosing)
         elif levels == 'county/state':
             return state_get_counties(enclosing)
-        elif levels == 'zip/county':
-            return county_get_zips(enclosing)
         else:
             print(f'Invalid location levels: {levels}')
-            print('Valid options are: zip/state, city/state, county/state, zip/county')
+            print('Valid options are: zip/state, city/state, county/state')
             return False
 
     def get_level(self):
@@ -174,9 +225,9 @@ class ArgParser:
 
     def get_state(self):
         print('Enter a state code e.g. NY')
-        inp = input('Answer: ')
-        if inp.upper() in self.state_codes:
-            return inp.upper()
+        inp = input('Answer: ').upper()
+        if inp in self.state_codes:
+            return inp
         else:
             print('Invalid state')
             self.get_state()
@@ -184,9 +235,9 @@ class ArgParser:
     def get_county(self, state):
         print(f'Enter county name (in {state}')
         opt = state_get_counties(state)
+        pretty_print(opt, 5)
         while True:
-            print('Options: ' + ', '.join(opt))
-            inp = input('Answer: ')
+            inp = input('Answer: ').upper()
             if inp in opt:
                 return inp
             else:
@@ -230,10 +281,10 @@ class ArgParser:
     def get_city(self):
         state = self.get_state()
         cities = state_get_cities(state)
+        pretty_print(cities, 5)
         while True:
             print(f'Enter the city from {state}')
-            print('Options: ' + ', '.join(cities))
-            inp = input('Answer: ')
+            inp = input('Answer: ').upper()
             if inp in cities:
                 return inp + state
             else:
