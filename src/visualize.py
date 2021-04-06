@@ -200,6 +200,71 @@ def home_val_incr(level, enclosing, enclosed):
     df, regions, date = filter_level_data(level, enclosing, enclosed)
 
 
+def city_sale_counts(city, state):
+    county = city_get_county(city, state)
+    state_name = S_NAME_MAP[state]
+    city_id = city_cw_df[(city_cw_df['CITY'] == city) &
+                         (city_cw_df['COUNTY'] == county) &
+                         (city_cw_df['STATE'] == state_name)]['CITY_ID'].values[0]
+    city_data = pd.read_csv(file_helper.CITY)
+    city_data = city_data[city_data['CITY_ID'] == city_id][['DATE_COLUMN1', 'SALE_COUNTS1']]
+    city_data = city_data[city_data['SALE_COUNTS1'].isna() == False].reset_index(drop=True)
+    dates = pd.to_datetime(city_data['DATE_COLUMN1']).dt.date
+    data = city_data['SALE_COUNTS1']
+    fig, ax = plt.subplots()
+    ax.plot(data)
+    plt.xlabel('Date')
+    plt.ylabel('Sale Counts')
+    plt.title('Sale Counts by Date for {}, {}'.format(city.title(), state_name.title()))
+    ax.set_xticklabels(dates)
+    plt.savefig('../output/sale_counts_{}.png'.format(city.lower()))
+
+
+def stacked_bar(city, state):
+    county = city_get_county(city, state)
+    state_name = S_NAME_MAP[state]
+    city_id = city_cw_df[(city_cw_df['CITY'] == city) &
+                         (city_cw_df['COUNTY'] == county) &
+                         (city_cw_df['STATE'] == state_name)]['CITY_ID'].values[0]
+    county_id = county_cw_df[(county_cw_df['COUNTYNAME'] == county) &
+                       (county_cw_df['STATENAME'] == state_name)]['COUNTY_ID'].values[0]
+
+    city_data = pd.read_csv(file_helper.CITY)
+    city_data = city_data[city_data['CITY_ID'] == city_id]
+    city_data = city_data[['DATE_COLUMN1', 'SALE_COUNTS1']].reset_index(drop=True)
+
+    county_data = pd.read_csv(file_helper.COUNTY)
+    county_data = county_data[county_data['COUNTY_ID'] == county_id]
+    county_data = county_data[['DATE_COLUMN1', 'SALE_COUNTS1']].reset_index(drop=True)
+
+    state_data = pd.read_csv(file_helper.STATE)
+    state_data = state_data[state_data['REGIONNAME1'] == state_name]
+    state_data = state_data[['DATE_COLUMN1', 'SALE_COUNTS1']].reset_index(drop=True)
+
+    data_mask = (city_data['SALE_COUNTS1'].isna() == False) & (county_data['SALE_COUNTS1'].isna() == False)
+    data_mask = data_mask & (state_data['SALE_COUNTS1'].isna() == False)
+
+    city_data = city_data[data_mask].sort_values('DATE_COLUMN1').reset_index(drop=True)
+    county_data = county_data[data_mask].sort_values('DATE_COLUMN1').reset_index(drop=True)
+    state_data = state_data[data_mask].sort_values('DATE_COLUMN1').reset_index(drop=True)
+
+    dates = pd.to_datetime(city_data['DATE_COLUMN1']).dt.date.sort_values()
+    combined = state_data['SALE_COUNTS1'] + county_data['SALE_COUNTS1']
+
+    fig, ax = plt.subplots()
+
+    ax.bar(range(len(dates)), state_data['SALE_COUNTS1'], label='State')
+    ax.bar(range(len(dates)), county_data['SALE_COUNTS1'], bottom=state_data['SALE_COUNTS1'], label='County')
+    ax.bar(range(len(dates)), city_data['SALE_COUNTS1'], bottom=combined, label='City')
+
+    ax.set_ylabel('Sale Counts')
+    ax.set_xlabel('Date')
+    ax.set_title('Sale Counts by Region, {}, {} County, {}'.format(city.title(), county.title(), state_name.title()))
+    ax.legend()
+    ax.set_xticklabels(dates)
+    plt.savefig('../output/sale_counts_by_region_{}.png'.format(city))
+
+
 class ArgParser:
 
     def __init__(self):
