@@ -92,7 +92,10 @@ def get_regions(table):
 
 def get_region_data(table, region):
     cursor = CONN.cursor()
-    cursor.execute(f'SELECT * FROM {table.name} WHERE {table.region_header}={region}')
+    try:
+        cursor.execute(f'SELECT * FROM {table.name} WHERE {table.region_header}=(:region)', [region])
+    except orc.DatabaseError:
+        return None
     return cursor.fetchall()
 
 
@@ -146,7 +149,26 @@ def rent_figure(level, enclosing, enclosed):
     :param enclosed: A list of areas at enclosed level within enclosing
     :return:
     """
-    pass
+    print(f'Creating {level} rental value comparison for {enclosing}')
+    if level == 'zip/state':
+        regions = enclosed
+        table = DB_INF.ZIP
+    elif level == 'city/state':
+        regions = [city_get_id(cit, enclosing) for cit in enclosed]
+        table = DB_INF.CITY
+    elif level == 'county/state':
+        regions = [county_get_fips(ct, enclosing) for ct in enclosed]
+        table = DB_INF.COUNTY
+    else:
+        raise Exception(f'Invalid level: {level}')
+    print('Fetching data')
+    print(regions)
+    data = {}
+    #for r in regions:
+        #dt = get_region_data(table, r)
+        #if dt is not None:
+            #data[r] = dt
+    print(data)
 
 
 # city format cityST e.g. newyorkNY
@@ -206,7 +228,11 @@ class ArgParser:
             self.no_args()
 
     def parse_args(self, args):
-        graph = args[0]
+        try:
+            graph = args[0]
+        except IndexError:
+            self.no_args()
+            return
         if graph in self.possibilities:
             try:
                 self.possibilities[graph](args[1:])
