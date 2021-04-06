@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sea
+import datetime
 
 
 orc.init_oracle_client(lib_dir=r'C:\Users\carch\Desktop\instantclient_19_10')
@@ -42,6 +43,9 @@ class FileHelper:
 
     def data_path(self, relative):
         return os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data'), relative)
+
+    def fig_path(self, relative):
+        return os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'figures'), relative)
 
 
 file_helper = FileHelper()
@@ -82,7 +86,7 @@ def city_get_county(city, st):
 
 def state_get_counties(st):
     data = county_cw_df[county_cw_df['STATEFIPS'] == S_FIPS_MAP[st]]
-    return list(data['COUNTY'])
+    return list(data['COUNTYNAME'])
 
 
 def state_get_cities(st):
@@ -113,7 +117,7 @@ def filter_level_data(level, enclosing, enclosed):
     latest_date = max(df['DATE_COLUMN1'])
     df = df[df['DATE_COLUMN1'] == latest_date]
     df = df[df['REGIONNAME1'].isin(regions)]
-    return df, regions
+    return df, regions, latest_date
 
 
 def rent_figure(level, enclosing, enclosed):
@@ -136,11 +140,37 @@ def rent_figure(level, enclosing, enclosed):
         divisor = (R ** L) - 1
         payment = P * (dividend / divisor)
         return float('%.2f' % payment)
+
+    def map_get_name(region_name):
+        l1 = level.split('/')[0]
+        if l1 == 'zip':
+            return region_name
+        elif l1 == 'city':
+            return list(city_cw_df[city_cw_df['UNIQUE_CITY_ID'] == region_name]['CITY'])[0]
+        elif l1 == 'county':
+            return list(county_cw_df[county_cw_df['FIPS'] == region_name]['COUNTYNAME'])[0]
+
     print(f'Creating {level} rental value comparison for {enclosing}')
-    df, regions = filter_level_data(level, enclosing, enclosed)
+    df, regions, date = filter_level_data(level, enclosing, enclosed)
     df = df[df['MEDIANRENTALPRICE_ALLHOMES1'].notnull() & df['MEDIANLISTINGPRICE_ALLHOMES1'].notnull()]
     df['MonthlyMortgage'] = df['MEDIANLISTINGPRICE_ALLHOMES1'].apply(map_calc_mortgage)
     df['MonthlyProfit'] = df['MEDIANRENTALPRICE_ALLHOMES1'] - df['MonthlyMortgage']
+    df['X_axis'] = df['REGIONNAME1'].apply(map_get_name)
+    df.sort_values('X_axis')
+    try:
+        fig = df.plot(x='X_axis', y='MonthlyProfit', kind='bar', figsize=(14, 10))
+    except IndexError:
+        print('Unable to create figure. Data:')
+        print(df)
+        print('Likely cause: too many null values for rental and listing price')
+        exit(-1)
+    plt.xlabel(level.split('/')[0].capitalize(), fontsize=15)
+    plt.ylabel('Monthly Profit', fontsize=15)
+    plt.suptitle(f'Projected Monthly Rental Profit by {level.split("/")[0].capitalize()} in {enclosing}', fontsize=16)
+    f_n = date[:10] + level.replace('/', '_') + '_' + enclosing + '.png'
+    plt.tight_layout(pad=2)
+    plt.savefig(file_helper.fig_path(f_n))
+    print('Figure output at figures/'+f_n)
 
 
 # city format cityST e.g. newyorkNY
@@ -169,7 +199,7 @@ def home_val_incr(level, enclosing, enclosed):
     :return:
     """
     print(f'Creating {level} home value increase comparison for {enclosing}')
-    df, regions = filter_level_data(level, enclosing, enclosed)
+    df, regions, date = filter_level_data(level, enclosing, enclosed)
 
 
 class ArgParser:
@@ -181,7 +211,7 @@ class ArgParser:
             'city_county_state': self.city_county_state,
             'home_val_incr': self.home_val_incr
         }
-        self.level_options = ['zip/state', 'city/state', 'county/state', 'zip/county']
+        self.level_options = ['zip/state', 'city/state', 'county/state']
         self.state_codes = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL',
                             'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE',
                             'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'PR', 'RI', 'SC',
@@ -194,6 +224,7 @@ class ArgParser:
             self.possibilities[choice]()
         elif choice.lower() == 'y':
             print(*self.possibilities)
+            self.no_args()
         elif choice.lower() == 'n':
             exit(0)
         else:
@@ -341,7 +372,8 @@ if __name__ == '__main__':
     arg_parser = ArgParser()
     try:
         sysargs = sys.argv[1:]
-        arg_parser.parse_args(sysargs)
     except IndexError:
         print('No arguments passed. Enter Y to see possibilities or N to cancel')
         arg_parser.no_args()
+    else:
+        arg_parser.parse_args(sysargs)
