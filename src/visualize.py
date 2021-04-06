@@ -1,6 +1,9 @@
 import cx_Oracle as orc
 import sys
 import os
+import pandas as pd
+import matplotlib as mpl
+import seaborn as sea
 
 
 orc.init_oracle_client(lib_dir=r'C:\Users\carch\Desktop\instantclient_19_10')
@@ -25,53 +28,25 @@ S_NAME_MAP = {
 }
 
 
-class TableInfo:
-
-    def __init__(self, table_name, region_header):
-        self.name = table_name
-        self.region_header = region_header
-
-
-class DbInfo:
+class FileHelper:
 
     def __init__(self):
-        self.STATE = TableInfo('T_State_time_series', 'RegionName1')
-        self.CITY = TableInfo('T_City_time_series', 'RegionName1')
-        self.COUNTY = TableInfo('T_County_time_series', 'RegionName1')
-        self.METRO = TableInfo('T_Metro_time_series', 'RegionName1')
-        self.NEIGHBORHOOD = TableInfo('T_Neighborhood_time_series', 'RegionName1')
-        self.ZIP = TableInfo('T_Zip_time_series', 'RegionName1')
-        self.COUNTY_CW = TableInfo('T_COUNTYCROSSWALK_ZILLOW', '')
-        self.CITY_CW = TableInfo('T_CITIES_CROSSWALK', '')
+        self.STATE = self.data_path('vis_State_time_series.csv')
+        self.CITY = self.data_path('vis_City_time_series.csv')
+        self.METRO = self.data_path('vis_Metro_time_series.csv')
+        self.NEIGHBORHOOD = self.data_path('vis_Neighborhood_time_series.csv')
+        self.ZIP = self.data_path('vis_Zip_time_series.csv')
+        self.COUNTY = self.data_path('vis_County_time_series.csv')
+        self.COUNTY_CW = self.data_path('vis_COUNTYCROSSWALK_ZILLOW.csv')
+        self.CITY_CW = self.data_path('vis_CITIES_CROSSWALK.csv')
+
+    def data_path(self, relative):
+        return os.path.join(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data'), relative)
 
 
-class DbConn:
-
-    def __init__(self):
-        self.dsn = orc.makedsn('174.104.164.39', '1521', service_name='orcl')
-        self.user = 'ali_adam'
-        self.password = 'root'
-
-        self.db = orc.connect(
-            user=self.user,
-            password=self.password,
-            dsn=self.dsn
-        )
-        self.cur = self.db.cursor()
-
-    def __del__(self):
-        self.cur.close()
-        self.db.close()
-
-    def cursor(self):
-        return self.db.cursor()
-
-    def execute(self, sql):
-        self.cur.execute(sql)
-
-
-DB_INF = DbInfo()
-CONN = DbConn()
+file_helper = FileHelper()
+city_cw_df = pd.read_csv(file_helper.CITY_CW)
+county_cw_df = pd.read_csv(file_helper.COUNTY_CW)
 
 
 def pretty_print(lis, per_line):
@@ -84,61 +59,61 @@ def pretty_print(lis, per_line):
         print(*lis[i:])
 
 
-def get_regions(table):
-    cursor = CONN.cursor()
-    cursor.execute(f'SELECT DISTINCT {table.region_header} FROM {table.name};')
-    return cursor.fetchall()
-
-
-def get_region_data(table, region):
-    cursor = CONN.cursor()
-    try:
-        cursor.execute(f'SELECT * FROM {table.name} WHERE {table.region_header}=(:region)', [region])
-    except orc.DatabaseError:
-        return None
-    return cursor.fetchall()
+def get_region_data(filename, region):
+    df = pd.read_csv(filename)
+    data = df[df['REGIONNAME1'] == region]
+    return data
 
 
 def county_get_fips(county, st):
-    cursor = CONN.cursor()
-    cursor.execute('SELECT FIPS FROM T_COUNTYCROSSWALK_ZILLOW WHERE COUNTYNAME=(:county) AND STATEFIPS=(:s_fips)', [county, S_FIPS_MAP[st]])
-    fips = cursor.fetchone()
-    return fips[0]
+    data = county_cw_df[(county_cw_df['COUNTYNAME'] == county) & (county_cw_df['STATEFIPS'] == S_FIPS_MAP[st])]
+    return list(data['FIPS'])[0]
 
 
 def city_get_id(city, st):
-    cursor = CONN.cursor()
-    cursor.execute('SELECT UNIQUE_CITY_ID FROM T_CITIES_CROSSWALK WHERE CITY=(:city) and STATE_ABBR=(:s)', [city, st])
-    ident = cursor.fetchone()
-    return ident[0]
+    data = city_cw_df[(city_cw_df['CITY'] == city) & (city_cw_df['STATE_ABBR'] == st)]
+    return list(data['UNIQUE_CITY_ID'])[0]
 
 
 def city_get_county(city, st):
-    cursor = CONN.cursor()
-    cursor.execute('SELECT COUNTY FROM T_CITIES_CROSSWALK WHERE CITY=(:city) and STATE_ABBR=(:s)', [city, st])
-    county_n = cursor.fetchone()
-    return county_n[0]
+    data = city_cw_df[(city_cw_df['CITY'] == city) & (city_cw_df['STATE_ABBR'] == st)]
+    return list(data['COUNTY'])[0]
 
 
 def state_get_counties(st):
-    cursor = CONN.cursor()
-    cursor.execute('SELECT COUNTYNAME FROM T_COUNTYCROSSWALK_ZILLOW WHERE STATEFIPS=(:s_fips)', [S_FIPS_MAP[st]])
-    counties = cursor.fetchall()
-    return [s[0] for s in counties]
+    data = county_cw_df[county_cw_df['STATEFIPS'] == S_FIPS_MAP[st]]
+    return list(data['COUNTY'])
 
 
 def state_get_cities(st):
-    cursor = CONN.cursor()
-    cursor.execute('SELECT CITY from T_CITIES_CROSSWALK WHERE STATE_ABBR = (:s_abbr)', [st])
-    cities = cursor.fetchall()
-    return [s[0] for s in cities]
+    data = city_cw_df[city_cw_df['STATE_ABBR'] == st]
+    return list(data['CITY'])
 
 
 def state_get_zips(st):
-    cursor = CONN.cursor()
-    cursor.execute('SELECT ZIP FROM T_CITITES_CROSSWALK WHERE STATE_ABBR=(s_abbr) AND ZIP IS NOT NULL', [st])
-    zips = cursor.fetchall()
-    return [s[0] for s in zips]
+    data = city_cw_df[(city_cw_df['STATE_ABBR'] == st) & (city_cw_df['ZIP'].notnull())]
+    return list(data['ZIP'])
+
+
+def filter_level_data(level, enclosing, enclosed):
+    if level == 'zip/state':
+        regions = enclosed
+        filename = file_helper.ZIP
+    elif level == 'city/state':
+        regions = [city_get_id(cit, enclosing) for cit in enclosed]
+        filename = file_helper.CITY
+    elif level == 'county/state':
+        regions = [county_get_fips(ct, enclosing) for ct in enclosed]
+        filename = file_helper.COUNTY
+    else:
+        raise Exception(f'Invalid level: {level}')
+    print('Fetching data')
+    df = pd.read_csv(filename)
+    print('Data read. Beginning filter')
+    latest_date = max(df['DATE_COLUMN1'])
+    df = df[df['DATE_COLUMN1'] == latest_date]
+    df = df[df['REGIONNAME1'].isin(regions)]
+    return df, regions
 
 
 def rent_figure(level, enclosing, enclosed):
@@ -149,26 +124,23 @@ def rent_figure(level, enclosing, enclosed):
     :param enclosed: A list of areas at enclosed level within enclosing
     :return:
     """
+    def map_calc_mortgage(val):
+        YEARLY_INTEREST = 3
+        # Number of months to pay. Assume 30y loan
+        L = 30 * 12
+        # Assume home price is loan principle
+        P = val
+        R = ((YEARLY_INTEREST / 12) * 0.01) + 1
+
+        dividend = (R ** L) * (R - 1)
+        divisor = (R ** L) - 1
+        payment = P * (dividend / divisor)
+        return float('%.2f' % payment)
     print(f'Creating {level} rental value comparison for {enclosing}')
-    if level == 'zip/state':
-        regions = enclosed
-        table = DB_INF.ZIP
-    elif level == 'city/state':
-        regions = [city_get_id(cit, enclosing) for cit in enclosed]
-        table = DB_INF.CITY
-    elif level == 'county/state':
-        regions = [county_get_fips(ct, enclosing) for ct in enclosed]
-        table = DB_INF.COUNTY
-    else:
-        raise Exception(f'Invalid level: {level}')
-    print('Fetching data')
-    print(regions)
-    data = {}
-    #for r in regions:
-        #dt = get_region_data(table, r)
-        #if dt is not None:
-            #data[r] = dt
-    print(data)
+    df, regions = filter_level_data(level, enclosing, enclosed)
+    df = df[df['MEDIANRENTALPRICE_ALLHOMES1'].notnull() & df['MEDIANLISTINGPRICE_ALLHOMES1'].notnull()]
+    df['MonthlyMortgage'] = df['MEDIANLISTINGPRICE_ALLHOMES1'].apply(map_calc_mortgage)
+    df['MonthlyProfit'] = df['MEDIANRENTALPRICE_ALLHOMES1'] - df['MonthlyMortgage']
 
 
 # city format cityST e.g. newyorkNY
@@ -176,7 +148,7 @@ def city_num_sales(city):
     state_abbr = city[-2:]
     city = city[:-2]
     city_id = city_get_id(city, state_abbr)
-    data = get_region_data(DB_INF.CITY, city_id)
+    data = get_region_data(file_helper.CITY, city_id)
 
 
 # city format cityST e.g. newyorkNY
@@ -196,7 +168,8 @@ def home_val_incr(level, enclosing, enclosed):
     :param enclosed: A list of areas at enclosed level within enclosing
     :return:
     """
-    pass
+    print(f'Creating {level} home value increase comparison for {enclosing}')
+    df, regions = filter_level_data(level, enclosing, enclosed)
 
 
 class ArgParser:
