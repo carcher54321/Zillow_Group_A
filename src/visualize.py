@@ -129,7 +129,7 @@ def rent_figure(level, enclosing, enclosed):
     :return:
     """
     def map_calc_mortgage(val):
-        YEARLY_INTEREST = 3
+        YEARLY_INTEREST = 3.33
         # Number of months to pay. Assume 30y loan
         L = 30 * 12
         # Assume home price is loan principle
