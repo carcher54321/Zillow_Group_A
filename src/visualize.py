@@ -11,6 +11,18 @@ S_FIPS_MAP = {
     'OH': 39, 'MA': 25, 'NJ': 34, 'IL': 17, 'SD': 46, 'SC': 45, 'TX': 48, 'AZ': 4, 'UT': 49, 'WA': 53, 'FL': 12,
     'NV': 32, 'DE': 10, 'GA': 13, 'MN': 27, 'IA': 19, 'ND': 38
 }
+S_NAME_MAP = {
+    'NM': 'NEWMEXICO', 'OK': 'OKLAHOMA', "WV": 'WESTVIRGINIA', 'AL': 'ALABAMA', 'MI': 'MICHIGAN', 'MS': 'MISSISSIPPI',
+    'VT': 'VERMONT', 'NY': 'NEWYORK', 'RI': 'RHODEISLAND', 'TN': 'TENNESSEE', 'WI': 'WISCONSIN', 'CT': 'CONNECTICUT',
+    'NE': 'NEBRASKA', 'WY': 'WYOMING', 'DC': 'DISTRICTOFCOLUMBIA', 'VA': 'VIRGINIA', 'HI': 'HAWAII', 'ID': 'IDAHO',
+    'MD': 'MARYLAND', 'MT': 'MONTANA', 'KS': 'KANSAS', 'KY': 'KENTUCKY', 'LA': 'LOUISIANA', 'AK': 'ALASKA',
+    'NH': 'NEWHAMPSHIRE', 'NC': 'NORTHCAROLINA', 'OR': 'OREGON', 'PA': 'PENNSYLVANIA', 'AR': 'ARKANSAS',
+    'CO': 'COLORADO', 'IN': 'INDIANA', 'ME': 'MAINE', 'MO': 'MISSOURI', 'NJ': 'NEWJERSEY', 'OH': 'OHIO',
+    'CA': 'CALIFORNIA', 'IL': 'ILLINOIS', 'MA': 'MASSACHUSETTS', 'SD': 'SOUTHDAKOTA', 'SC': 'SOUTHCAROLINA',
+    'TX': 'TEXAS', 'UT': 'UTAH', 'AZ': 'ARIZONA', 'NV': 'NEVADA', 'WA': 'WASHINGTON', 'DE': 'DELAWARE', 'FL': 'FLORIDA',
+    'GA': 'GEORGIA', 'IA': 'IOWA', 'MN': 'MINNESOTA', 'ND': 'NORTHDAKOTA'
+
+}
 
 
 class TableInfo:
@@ -23,12 +35,12 @@ class TableInfo:
 class DbInfo:
 
     def __init__(self):
-        self.STATE = TableInfo('T_State_time_series', 'RegionName')
-        self.CITY = TableInfo('T_City_time_series', 'RegionName')
-        self.COUNTY = TableInfo('T_County_time_series', 'RegionName')
-        self.METRO = TableInfo('T_Metro_time_series', 'RegionName')
-        self.NEIGHBORHOOD = TableInfo('T_Neighborhood_time_series', 'RegionName')
-        self.ZIP = TableInfo('T_Zip_time_series', 'RegionName')
+        self.STATE = TableInfo('T_State_time_series', 'RegionName1')
+        self.CITY = TableInfo('T_City_time_series', 'RegionName1')
+        self.COUNTY = TableInfo('T_County_time_series', 'RegionName1')
+        self.METRO = TableInfo('T_Metro_time_series', 'RegionName1')
+        self.NEIGHBORHOOD = TableInfo('T_Neighborhood_time_series', 'RegionName1')
+        self.ZIP = TableInfo('T_Zip_time_series', 'RegionName1')
         self.COUNTY_CW = TableInfo('T_COUNTYCROSSWALK_ZILLOW', '')
         self.CITY_CW = TableInfo('T_CITIES_CROSSWALK', '')
 
@@ -101,7 +113,7 @@ def city_get_id(city, st):
 def city_get_county(city, st):
     cursor = CONN.cursor()
     cursor.execute('SELECT COUNTY FROM T_CITIES_CROSSWALK WHERE CITY=(:city) and STATE_ABBR=(:s)', [city, st])
-    county_n = cursor.fetchone
+    county_n = cursor.fetchone()
     return county_n[0]
 
 
@@ -139,7 +151,10 @@ def rent_figure(level, enclosing, enclosed):
 
 # city format cityST e.g. newyorkNY
 def city_num_sales(city):
-    pass
+    state_abbr = city[-2:]
+    city = city[:-2]
+    city_id = city_get_id(city, state_abbr)
+    data = get_region_data(DB_INF.CITY, city_id)
 
 
 # city format cityST e.g. newyorkNY
@@ -148,6 +163,7 @@ def city_county_state(city):
     city = city[:-2]
     city_id = city_get_id(city, state_abbr)
     county_fips = county_get_fips(city_get_county(city, state_abbr), state_abbr)
+    state_id = S_NAME_MAP[state_abbr]
 
 
 def home_val_incr(level, enclosing, enclosed):
@@ -234,7 +250,7 @@ class ArgParser:
 
     def get_county(self, state):
         print(f'Enter county name (in {state}')
-        opt = state_get_counties(state)
+        opt = sorted(state_get_counties(state))
         pretty_print(opt, 5)
         while True:
             inp = input('Answer: ').upper()
@@ -280,7 +296,7 @@ class ArgParser:
 
     def get_city(self):
         state = self.get_state()
-        cities = state_get_cities(state)
+        cities = sorted(state_get_cities(state))
         pretty_print(cities, 5)
         while True:
             print(f'Enter the city from {state}')
