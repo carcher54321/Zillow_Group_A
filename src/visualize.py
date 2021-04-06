@@ -2,7 +2,7 @@ import cx_Oracle as orc
 import sys
 import os
 import pandas as pd
-import matplotlib as mpl
+import matplotlib as plt
 import seaborn as sea
 
 
