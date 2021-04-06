@@ -171,15 +171,6 @@ def rent_figure(level, enclosing, enclosed):
     print('Figure output at figures/'+f_n)
 
 
-# city format cityST e.g. newyorkNY
-def city_county_state(city):
-    state_abbr = city[-2:]
-    city = city[:-2]
-    city_id = city_get_id(city, state_abbr)
-    county_fips = county_get_fips(city_get_county(city, state_abbr), state_abbr)
-    state_id = S_NAME_MAP[state_abbr]
-
-
 def home_val_incr(level, enclosing, enclosed):
     """
     Create a figure comparing rental efficiency across areas
