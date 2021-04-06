@@ -172,14 +172,6 @@ def rent_figure(level, enclosing, enclosed):
 
 
 # city format cityST e.g. newyorkNY
-def city_num_sales(city):
-    state_abbr = city[-2:]
-    city = city[:-2]
-    city_id = city_get_id(city, state_abbr)
-    data = get_region_data(file_helper.CITY, city_id)
-
-
-# city format cityST e.g. newyorkNY
 def city_county_state(city):
     state_abbr = city[-2:]
     city = city[:-2]
@@ -200,7 +192,9 @@ def home_val_incr(level, enclosing, enclosed):
     df, regions, date = filter_level_data(level, enclosing, enclosed)
 
 
-def city_sale_counts(city, state):
+def city_num_sales(city):
+    state = city[-2:]
+    city = city[:-2]
     county = city_get_county(city, state)
     state_name = S_NAME_MAP[state]
     city_id = city_cw_df[(city_cw_df['CITY'] == city) &
@@ -220,7 +214,9 @@ def city_sale_counts(city, state):
     plt.savefig('../output/sale_counts_{}.png'.format(city.lower()))
 
 
-def stacked_bar(city, state):
+def city_county_state(city):
+    state = city[-2:]
+    city = city[:-2]
     county = city_get_county(city, state)
     state_name = S_NAME_MAP[state]
     city_id = city_cw_df[(city_cw_df['CITY'] == city) &
