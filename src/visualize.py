@@ -1,4 +1,3 @@
-import cx_Oracle as orc
 import sys
 import os
 import pandas as pd
@@ -7,7 +6,6 @@ import seaborn as sea
 import datetime
 
 
-orc.init_oracle_client(lib_dir=r'C:\Users\carch\Desktop\instantclient_19_10')
 S_FIPS_MAP = {
     'MS': 28, 'WV': 54, 'MI': 26, 'AL': 1, 'NM': 35, 'OK': 40, 'VT': 50, 'TN': 47, 'RI': 44, 'WI': 55, 'NY': 36,
     'DC': 11, 'CT': 9, 'NE': 31, 'WY': 56, 'VA': 51, 'MD': 24, 'HI': 15, 'MT': 30, 'ID': 16, 'KY': 21, 'KS': 20,
