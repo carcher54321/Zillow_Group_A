@@ -24,7 +24,7 @@ def data_path(relative):
 
 
 def log_path():
-    return os.path.join(os.path.join(ROOT, 'log'), ''.join(FILE_NAME.split('.')[:-1]) + '.log')
+    return os.path.join(os.path.join(ROOT, 'logs'), ''.join(FILE_NAME.split('.')[:-1]) + '.log')
 
 
 def get_data_filenames():
@@ -32,19 +32,19 @@ def get_data_filenames():
     return filenames
 
 
-def match_filename(filenames):
+def match_filename(filenames, file):
     file_name = None
-    if FILE_NAME not in filenames:
-        logging.info(f'Unable to find file {FILE_NAME}, checking data folder for close matches')
+    if file not in filenames:
+        logging.info(f'Unable to find file {file}, checking data folder for close matches')
         for f in filenames:
-            if SequenceMatcher(a=f, b=FILE_NAME).ratio() > FILE_NAME_ACCURACY:
+            if SequenceMatcher(a=f, b=file).ratio() > FILE_NAME_ACCURACY:
                 file_name = f
                 logging.info(f'Match found! {file_name}')
                 break
         else:
-            logging.error(f'File {FILE_NAME} does not exist in data folder')
+            logging.error(f'File {file} does not exist in data folder')
     else:
-        file_name = FILE_NAME
+        file_name = file
     return file_name
 
 
@@ -57,7 +57,7 @@ def main():
     logging.basicConfig(filename=log_path(), level=logging.INFO, format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p::')
     filenames = get_data_filenames()
-    file_name = match_filename(filenames)
+    file_name = match_filename(filenames, FILE_NAME)
     if not file_name:
         logging.error('File not found. Unable to continue, exiting.')
         return
