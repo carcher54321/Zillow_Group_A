@@ -4,15 +4,6 @@ import pandas as pd
 import logging
 
 
-def load_data(fname):
-    try:
-        d = pd.read_csv('../data/' + fname)
-    except Exception as e:
-        logging.error('Failed loading data {}. {}'.format(fname, e))
-        return False
-    return d
-
-
 def replace_header(h):
     header_map = {'InventorySeasonallyAdjusted': 'InvSeasAdj',
                   'MedianListingPricePerSqft': 'MedLstPrPerSqft',
@@ -92,13 +83,22 @@ def get_header_type(d, fname, s):
 
 
 class Format_Db:
-    def __init__(self):
+    def __init__(self, path):
         self.dsn = orc.makedsn('localhost', '1521', service_name='orcl')
         self.user = 'ali_adam'
         self.password = 'root'
+        self.path = path
+
+    def load_data(self, fname):
+        try:
+            d = pd.read_csv(self.path + fname)
+        except Exception as e:
+            logging.error('Failed loading data {}. {}'.format(fname, e))
+            return False
+        return d
 
     def create_table(self, fname, staging):
-        data = load_data(fname)
+        data = self.load_data(fname)
         if not type(data) == bool:
             table_name = fname[:-4]
             if staging:
@@ -106,54 +106,62 @@ class Format_Db:
             else:
                 table_name = 'T_' + table_name.upper()
 
+            try:
+                db = orc.connect(
+                    user=self.user,
+                    password=self.password,
+                    dsn=self.dsn
+                )
+                cursor = db.cursor()
+            except Exception as e:
+                logging.error('Failed connecting to database, error: {}'.format(e))
+            else:
+                sql = "SELECT table_name FROM user_tables WHERE table_name = '" + table_name + "'"
+                cursor.execute(sql)
+
+                if cursor.fetchone():
+                    logging.info('Table {} already exists.'.format(table_name))
+                else:
+                    headers = get_header_type(data, fname, staging)
+                    sql = 'CREATE TABLE ' + table_name + '' + headers
+                    try:
+                        cursor.execute(sql)
+                        logging.info('Table {} created.'.format(table_name))
+                    except Exception as e:
+                        logging.error('Failed creating table {}: {}'.format(table_name, e))
+
+                cursor.close()
+                db.close()
+
+    def create_user(self, user):
+        try:
             db = orc.connect(
                 user=self.user,
                 password=self.password,
                 dsn=self.dsn
             )
             cursor = db.cursor()
-
-            sql = "SELECT table_name FROM user_tables WHERE table_name = '" + table_name + "'"
-            cursor.execute(sql)
-
-            if cursor.fetchone():
-                logging.info('Table {} already exists.'.format(table_name))
-            else:
-                headers = get_header_type(data, fname, staging)
-                sql = 'CREATE TABLE ' + table_name + '' + headers
-                try:
-                    cursor.execute(sql)
-                    logging.info('Table {} created.'.format(table_name))
-                except Exception as e:
-                    logging.error('Failed creating table {}: {}'.format(table_name, e))
-
-            cursor.close()
-            db.close()
-
-    def create_user(self, user):
-        db = orc.connect(
-            user=self.user,
-            password=self.password,
-            dsn=self.dsn
-        )
-        cursor = db.cursor()
-
-        sql1 = '''
-        CREATE USER {} IDENTIFIED BY root
-        DEFAULT TABLESPACE "ts_usr"
-        TEMPORARY TABLESPACE TEMP'''.format(user)
-        cursor.execute(sql1)
-        sql2 = 'ALTER USER {} QUOTA UNLIMITED ON "ts_usr"'.format(user)
-        cursor.execute(sql2)
-        sql3 = 'GRANT "CONNECT" TO ' + user
-        cursor.execute(sql3)
-        sql4 = 'GRANT "RESOURCE" TO ' + user
-        cursor.execute(sql4)
-        sql5 = 'GRANT CREATE VIEW TO ' + user
-        cursor.execute(sql5)
+        except Exception as e:
+            logging.error('Failed connecting to database, error: {}'.format(e))
+        else:
+            logging.info('Creating user: {}'.format(user))
+            sql1 = '''
+            CREATE USER {} IDENTIFIED BY root
+            DEFAULT TABLESPACE "ts_usr"
+            TEMPORARY TABLESPACE TEMP'''.format(user)
+            cursor.execute(sql1)
+            sql2 = 'ALTER USER {} QUOTA UNLIMITED ON "ts_usr"'.format(user)
+            cursor.execute(sql2)
+            sql3 = 'GRANT "CONNECT" TO ' + user
+            cursor.execute(sql3)
+            sql4 = 'GRANT "RESOURCE" TO ' + user
+            cursor.execute(sql4)
+            sql5 = 'GRANT CREATE VIEW TO ' + user
+            cursor.execute(sql5)
+            logging.info('User creation complete')
 
     def main(self):
-        fnames = os.listdir('../data/')
+        fnames = os.listdir(self.path)
         for s in [True, False]:
             for n in fnames:
                 self.create_table(n, s)
@@ -165,5 +173,6 @@ if __name__ == "__main__":
                         filemode='w',
                         level=logging.DEBUG,
                         datefmt='%Y-%m-%d %H:%M:%S')
-    make_db = Format_Db()
+    path = '../data/'
+    make_db = Format_Db(path)
     make_db.main()
