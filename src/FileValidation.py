@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import logging
-
+import config
 
 
 class FileValidation:
@@ -39,7 +39,7 @@ class FileValidation:
 
             for cell in df[col].values: #checking each cell 
                 if type_list[col_num] == "int64":
-                    if cell == "Nan" or type(cell) == np.int64 or type(cell) == int:
+                    if cell == config.NAN_REPLACE or type(cell) == np.int64 or type(cell) == int:
                         continue
                     else:
                         logging.error("The required data type: %s and cell data type %s"%(type_list[col_num],type(cell)))
@@ -48,7 +48,7 @@ class FileValidation:
 
 
                 elif type_list [col_num] == "float64":
-                    if cell == "Nan" or type(cell) == np.float64 or type(cell) == float:
+                    if cell == config.NAN_REPLACE or type(cell) == np.float64 or type(cell) == float:
                         continue
                     else:
                         
@@ -57,7 +57,7 @@ class FileValidation:
                         return False
                 
                 elif type_list[col_num] == "object":
-                    if cell == "Nan" or type(cell) == str:
+                    if cell == config.NAN_REPLACE or type(cell) == str:
                         continue
                     else:
                         logging.error("The required data type: %s and cell data type %s"%(type_list[col_num],type(cell)))
@@ -75,9 +75,9 @@ class FileValidation:
     def get_errors(self):  #returns the error values
         return self.error
 
-    def NAN_replacement(self,df): #replace null values with Nan
-        logging.info("Replacing null values to Nan")
-        df.fillna("Nan", inplace = True)
+    def NAN_replacement(self,df): #replace null values with configurable value
+        logging.info(f"Replacing null values to {config.NAN_REPLACE}")
+        df.fillna(config.NAN_REPLACE, inplace = True)
         return
 
     def save_to_csv(self,outputfile):

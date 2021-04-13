@@ -5,26 +5,24 @@ import tarfile
 import gmail_connect
 import sys
 from FileValidation import FileValidation
+import config
 
-# usage: python prep_file [DATA_PATH] [FILE_NAME (not path)] [OUT_PATH]
 
-FILE_NAME = 'City_time_series.csv'
-FILE_NAME_ACCURACY = 0.9
-EXTENSION = FILE_NAME.split('.')[-1]
-ROOT = os.path.dirname(os.path.dirname(__file__))
-TAR_PATH = os.path.join(ROOT, 'data_archive.tar')
-EMAIL_SENDER = 'carcher.djangodev@gmail.com'
-EMAIL_RECIPIENTS = ['colin.archer@smoothstack.com']
-DATA_PATH = os.path.join(ROOT, 'data')
-OUT_PATH = os.path.join(ROOT, 'output')
+FILE_NAMES = config.FILE_NAMES
+ROOT = config.ROOT
+TAR_PATH = config.TAR_PATH
+EMAIL_SENDER = config.EMAIL_SENDER
+EMAIL_RECIPIENTS = config.EMAIL_RECIPIENTS
+DATA_PATH = config.DATA_PATH
+OUT_PATH = config.OUT_PATH
 
 
 def data_path(relative):
     return os.path.join(DATA_PATH, relative)
 
 
-def log_path():
-    return os.path.join(os.path.join(ROOT, 'logs'), ''.join(FILE_NAME.split('.')[:-1]) + '.log')
+def log_path(filename):
+    return os.path.join(os.path.join(ROOT, 'logs'), ''.join(filename.split('.')[:-1]) + '.log')
 
 
 def get_data_filenames():
@@ -37,7 +35,7 @@ def match_filename(filenames, file):
     if file not in filenames:
         logging.info(f'Unable to find file {file}, checking data folder for close matches')
         for f in filenames:
-            if SequenceMatcher(a=f, b=file).ratio() > FILE_NAME_ACCURACY:
+            if SequenceMatcher(a=f, b=file).ratio() > config.FILE_NAME_ACCURACY:
                 file_name = f
                 logging.info(f'Match found! {file_name}')
                 break
@@ -53,11 +51,12 @@ def archive(file_name):
         tar.add(data_path(file_name))
 
 
-def main():
-    logging.basicConfig(filename=log_path(), level=logging.INFO, format='%(asctime)s %(message)s',
+def main(filename):
+    logging.basicConfig(filename=log_path(filename), level=logging.INFO, format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p::')
     filenames = get_data_filenames()
-    file_name = match_filename(filenames, FILE_NAME)
+    file_name = match_filename(filenames, filename)
+    EXTENSION = filename.split('.')[-1]
     if not file_name:
         logging.error('File not found. Unable to continue, exiting.')
         return
@@ -77,24 +76,9 @@ def main():
             validator.save_to_csv(os.path.join(OUT_PATH, file_name))
     else:
         gmail_connect.sendEmail(EMAIL_SENDER, validator.get_errors(), '', EMAIL_RECIPIENTS,
-                                [data_path(file_name), log_path()])
+                                [data_path(file_name), log_path(filename)])
 
 
 if __name__ == '__main__':
-    try:
-        DATA_PATH = sys.argv[1]
-        logging.info(f'Data path is {DATA_PATH}')
-    except IndexError:
-        logging.error(f'No Data path passed. Using default')
-    try:
-        FILE_NAME = sys.argv[2]
-        EXTENSION = FILE_NAME.split('.')[-1]
-        logging.info(f'Beginning validation of file {FILE_NAME}')
-    except IndexError:
-        logging.error(f'No file name passed, using default {FILE_NAME}')
-    try:
-        OUT_PATH = sys.argv[3]
-        logging.info(f'Data output path is {OUT_PATH}')
-    except IndexError:
-        logging.error('No output path passed. Using default')
-    main()
+    for fn in FILE_NAMES:
+        main(fn)
