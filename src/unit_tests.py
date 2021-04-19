@@ -26,9 +26,8 @@ class PrepFileTests(unittest.TestCase):
                          os.path.join(prep_file.DATA_PATH), 'test')
 
     def test_log_path(self):
-        prep_file.FILE_NAME = 'test.csv'
         prep_file.ROOT = os.path.dirname(__file__)
-        self.assertEqual(prep_file.log_path(),
+        self.assertEqual(prep_file.log_path('test.csv'),
                          os.path.join(os.path.join(os.path.dirname(__file__), 'logs')), 'test.log')
 
     def test_get_data_filenames(self):
