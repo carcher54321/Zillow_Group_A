@@ -1,7 +1,9 @@
 import cx_Oracle as orc
-import os
 import pandas as pd
 import logging
+import config
+from fix_zip import fix_zip
+import gmail_connect
 
 
 def replace_header(h):
@@ -71,22 +73,14 @@ def get_header_type(d, fname, s):
         else:
             h_init += ', '
 
-    if not s:
-        if fname == 'CountyCrossWalk_Zillow.csv':
-            h_init = h_init[0] + 'state_id NUMBER, county_id NUMBER, metro_id NUMBER, ' + h_init[1:]
-        elif fname == 'Cities_crosswalk.csv':
-            h_init = h_init[0] + 'zip_id NUMBER, city_id NUMBER, ' + h_init[1:]
-        else:
-            h_init = h_init[0] + fname.split('_')[0] + '_id NUMBER, ' + h_init[1:]
-
     return h_init
 
 
 class Format_Db:
     def __init__(self, path):
-        self.dsn = orc.makedsn('localhost', '1521', service_name='orcl')
-        self.user = 'ali_adam'
-        self.password = 'root'
+        self.dsn = orc.makedsn(config.DB_HOST, config.DB_PORT, service_name=config.DB_SERVICE)
+        self.user = config.DB_USER
+        self.password = config.DB_PASS
         self.path = path
 
     def load_data(self, fname):
@@ -160,16 +154,22 @@ class Format_Db:
             cursor.execute(sql5)
             logging.info('User creation complete')
 
+    def send_email(self):
+        gmail_connect.sendEmail(config.DB_EMAIL_SENDER, 'Preprocessing log', '', config.EMAIL_RECIPIENTS,
+                                ['preprocessing.log'])
+
     def main(self):
-        fnames = os.listdir(self.path)
         for s in [True, False]:
-            for n in fnames:
+            for n in config.FILE_NAMES:
                 self.create_table(n, s)
+        fix = fix_zip(self.path)
+        fix.main()
+        self.send_email()
 
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(levelname)-4s %(message)s',
-                        filename='../logs/format_db.log',
+                        filename='preprocessing.log',
                         filemode='w',
                         level=logging.DEBUG,
                         datefmt='%Y-%m-%d %H:%M:%S')

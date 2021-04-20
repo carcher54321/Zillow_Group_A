@@ -7,12 +7,20 @@ class fix_zip:
     def __init__(self, filepath):
         self.path = filepath
 
+    def load_data(self, fname):
+        try:
+            d = pd.read_csv(self.path + fname)
+        except Exception as e:
+            logging.error('Failed loading data {}. {}'.format(fname, e))
+            return False
+        return d
+
     def match(self):
         logging.info('Starting matching process')
-        zip_lkp = pd.read_csv(self.path + 'zip_lookup.csv', index_col=0)
-        ccw = pd.read_csv(self.path + 'cities_crosswalk.csv')
+        zip_lkp = self.load_data('zip_lookup.csv')
+        ccw = self.load_data('cities_crosswalk.csv')
 
-        d = np.zeros([len(ccw), 7])
+        d = np.zeros([len(ccw), 6])
         d = pd.DataFrame(d)
         headers = ['Unique_City_ID', 'City', 'County', 'State_Abbr', 'Zip', 'State']
         d.columns = headers
@@ -20,7 +28,13 @@ class fix_zip:
             d[i] = col.astype(object)
 
         out = []
+        prev = 0
         for i, row in d.iterrows():
+            percent = round((i/len(d)) * 100, 2)
+            if percent % 10 == 0 and percent != prev:
+                print(str(percent) + '% complete.')
+                prev = percent
+
             a = ccw.loc[i]
             found = False
             temp = zip_lkp[zip_lkp['city'].str.strip().str.upper() == a['City'].strip().upper()]
@@ -46,10 +60,10 @@ class fix_zip:
 
     def fill_missing(self):
         logging.info('Filling state abbreviations to unmapped zip codes')
-        nf = pd.read_csv(self.path + 'not_found.csv')
-        zip_lkp = pd.read_csv(self.path + 'new_zip_lkp.csv', index_col=0)
-        ncw = pd.read_csv(self.path + 'new_cities_cw.csv')
-        cw = pd.read_csv(self.path + 'cities_crosswalk.csv')
+        nf = self.load_data('not_found.csv')
+        zip_lkp = self.load_data('zip_lookup.csv')
+        ncw = self.load_data('new_cities_cw.csv')
+        cw = self.load_data('cities_crosswalk.csv')
         for i, row in nf.iterrows():
             print(i)
             temp = zip_lkp[zip_lkp['state_id'].str.strip().str.upper() == row['State'].strip().upper()]
@@ -78,7 +92,7 @@ class fix_zip:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(levelname)-4s %(message)s',
-                        filename='../logs/format_db.log',
+                        filename='fix_zip.log',
                         filemode='w',
                         level=logging.DEBUG,
                         datefmt='%Y-%m-%d %H:%M:%S')
