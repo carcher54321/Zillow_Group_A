@@ -3,7 +3,6 @@ import logging
 from difflib import SequenceMatcher
 import tarfile
 import gmail_connect
-import sys
 from FileValidation import FileValidation
 import config
 
@@ -51,7 +50,7 @@ def archive(file_name):
         tar.add(data_path(file_name))
 
 
-def main(filename):
+def process_file(filename):
     logging.basicConfig(filename=log_path(filename), level=logging.INFO, format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p::')
     filenames = get_data_filenames()
@@ -59,7 +58,9 @@ def main(filename):
     EXTENSION = filename.split('.')[-1]
     if not file_name:
         logging.error('File not found. Unable to continue, exiting.')
-        return
+        gmail_connect.sendEmail(EMAIL_SENDER, 'File Not Found', f'{filename} was not found in the data folder',
+                                EMAIL_RECIPIENTS, [log_path(filename)])
+        return None
     extension = file_name.split('.')[-1]
     if not extension == EXTENSION:
         logging.error(f'The file {file_name} has the wrong extension. Should be .{EXTENSION}')
@@ -67,18 +68,28 @@ def main(filename):
     validator = FileValidation(data_path(file_name))
     success = validator.validate()
     if success:
-        logging.info(f'File Pre-validation successful. Beginning Database Stage')
-        db_succ = validator.db_stage()
-        if db_succ:
-            logging.info(f'Successfully staged into database. Archiving to .tar')
-            archive(file_name)
-            logging.info(f'Archival success')
-            validator.save_to_csv(os.path.join(OUT_PATH, file_name))
+        logging.info(f'File Pre-validation successful. Archiving to .tar')
+        archive(file_name)
+        logging.info(f'Archival success. Saving to output path')
+        validator.save_to_csv(os.path.join(OUT_PATH, file_name))
+        return log_path(filename)
     else:
         gmail_connect.sendEmail(EMAIL_SENDER, validator.get_errors(), '', EMAIL_RECIPIENTS,
                                 [data_path(file_name), log_path(filename)])
+        return None
+
+
+def main():
+    log_files = []
+    success_filenames = []
+    for fn in FILE_NAMES:
+        rt = process_file(fn)
+        if rt:
+            log_files.append(rt)
+            success_filenames.append(fn)
+    gmail_connect.sendEmail(EMAIL_SENDER, f'Successfully Validated {len(success_filenames)} Files',
+                            f'{success_filenames} all validated successfully', EMAIL_RECIPIENTS, log_files)
 
 
 if __name__ == '__main__':
-    for fn in FILE_NAMES:
-        main(fn)
+    main()
