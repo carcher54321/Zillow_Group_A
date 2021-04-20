@@ -1,6 +1,7 @@
 # file for creating unit tests
 import unittest
 import prep_file
+import FileValidation as fv
 import os
 import logging
 logging.basicConfig(filename='test.log', level=logging.INFO)
@@ -51,6 +52,16 @@ class PrepFileTests(unittest.TestCase):
         pass
 
 
+class FileValidationTests(unittest.TestCase):
+
+    def test_validate(self):
+        with open('test.txt', 'x'):
+            pass
+        val = fv.FileValidation('test.txt')
+        self.assertIs(val.validate(), False)
+        os.remove('test.txt')
+
+
 if __name__ == '__main__':
     unittest.main()
-    os.remove(os.path.join(os.path.dirname(__file__), 'test.log'))
+    os.remove('test.log')

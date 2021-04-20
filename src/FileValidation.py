@@ -89,11 +89,6 @@ class FileValidation:
         else:
             logging.error("The dataframe does not exist")
 
-    def db_stage(self):
-        # check/create table
-        # check/create headers
-        # input data
-        return
 
 # if __name__ == "__main__":
 #     os.chdir(os.path.dirname(__file__))
