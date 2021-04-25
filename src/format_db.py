@@ -32,48 +32,50 @@ def replace_header(h):
 
 
 def get_header_type(d, fname, s):
-    h_init = '('
+    header = '('
     for i, col in d.items():
         # Oracle only allows column names less than 30 characters
-        header = i
+        col_name = i
         if len(i) > 30:
             prefix = replace_header(i.split('_')[0])
             suffix = replace_header(i.split('_')[1])
 
-            header = prefix + '_' + suffix
+            col_name = prefix + '_' + suffix
 
         # Date is a reserved word
-        if header == 'Date':
-            header = 'Date_Column'
+        if col_name == 'Date':
+            col_name = 'Date_Column'
 
         if not s:
             if fname not in ['Cities_crosswalk.csv', 'CountyCrossWalk_Zillow.csv']:
-                h_init += header + '1 '
-                if header == 'Date_Column':
-                    h_init += 'DATE'
-                elif header == 'RegionName':
+                header += col_name + '1 '
+
+                if col_name == 'Date_Column':
+                    header += 'DATE'
+                elif col_name == 'RegionName':
                     if fname in ['City_time_series.csv', 'State_time_series.csv']:
-                        h_init += 'VARCHAR2(50)'
+                        header += 'VARCHAR2(50)'
                     else:
-                        h_init += 'NUMBER'
+                        header += 'NUMBER'
                 else:
-                    h_init += 'NUMBER'
+                    header += 'NUMBER'
             else:
-                h_init += header + ' '
-                if header in ['Zip', 'StateFIPS', 'CountyFIPS', 'CountyRegionID_Zillow',
-                              'MetroRegionID_Zillow', 'FIPS', 'CBSACode']:
-                    h_init += 'NUMBER(10)'
+                header += col_name + ' '
+                if col_name in ['Zip', 'StateFIPS', 'CountyFIPS', 'CountyRegionID_Zillow',
+                                'MetroRegionID_Zillow', 'FIPS', 'CBSACode']:
+                    header += 'NUMBER(10)'
                 else:
-                    h_init += 'VARCHAR2(50)'
+                    header += 'VARCHAR2(50)'
         else:
-            h_init += 'VARCHAR2(50)'
+            # Don't worry about data types if creating staging table
+            header += 'VARCHAR2(50)'
 
         if i == d.columns[-1]:
-            h_init += ')'
+            header += ')'
         else:
-            h_init += ', '
+            header += ', '
 
-    return h_init
+    return header
 
 
 class Format_Db:
@@ -89,6 +91,7 @@ class Format_Db:
         except Exception as e:
             logging.error('Failed loading data {}. {}'.format(fname, e))
             return False
+        logging.info(self.path + fname + ' loaded successfully')
         return d
 
     def create_table(self, fname, staging):
@@ -155,15 +158,16 @@ class Format_Db:
             logging.info('User creation complete')
 
     def send_email(self):
+        logging.info('Sending log email')
         gmail_connect.sendEmail(config.DB_EMAIL_SENDER, 'Preprocessing log', '', config.EMAIL_RECIPIENTS,
                                 ['preprocessing.log'])
 
     def main(self):
+        fix = fix_zip(self.path)
+        fix.main()
         for s in [True, False]:
             for n in config.FILE_NAMES:
                 self.create_table(n, s)
-        fix = fix_zip(self.path)
-        fix.main()
         self.send_email()
 
 
