@@ -21,7 +21,7 @@ class fix_zip:
         zip_lkp = self.load_data('zip_lookup.csv')
         ccw = self.load_data('cities_crosswalk.csv')
 
-        '''d = np.zeros([len(ccw), 6])
+        d = np.zeros([len(ccw), 6])
         d = pd.DataFrame(d)
         headers = ['Unique_City_ID', 'City', 'County', 'State_Abbr', 'Zip', 'State']
         d.columns = headers
@@ -55,9 +55,9 @@ class fix_zip:
 
         d.to_csv(self.path + 'new_cities_cw.csv', index=False)
         out = pd.DataFrame(out)
-        out.to_csv(self.path + 'not_found.csv', index=False)'''
+        out.to_csv(self.path + 'not_found.csv', index=False)
         logging.info('Mapping process complete')
-        logging.info('8264 records with no matching zip code')
+        logging.info(str(len(out)) + ' records with no matching zip code')
         self.fill_missing()
 
     def fill_missing(self):
@@ -66,7 +66,7 @@ class fix_zip:
         zip_lkp = self.load_data('zip_lookup.csv')
         ncw = self.load_data('new_cities_cw.csv')
         cw = self.load_data('cities_crosswalk.csv')
-        '''for i, row in nf.iterrows():
+        for i, row in nf.iterrows():
             print(i)
             temp = zip_lkp[zip_lkp['state_id'].str.strip().str.upper() == row['State'].strip().upper()]
             temp = temp[temp['county_name'].str.strip().str.upper() == row['County'].strip().upper()]
@@ -85,7 +85,7 @@ class fix_zip:
             r.index = ['Unique_City_ID', 'City', 'County', 'State_Abbr', 'Zip', 'State']
             ncw.loc[i] = r
 
-        ncw.to_csv(self.path + 'new_cities_crosswalk.csv', index=False)'''
+        ncw.to_csv(self.path + 'new_cities_crosswalk.csv', index=False)
         logging.info('Full state name fill complete')
 
     def main(self):
