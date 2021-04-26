@@ -12,20 +12,27 @@ class FileValidation:
         self.error = None
         self.df = None
 
+
+
     def validate(self):  # -> return True/False
         logging.info("Begining file validation")
         isempty = os.stat(self.file).st_size == 0  # checks if the file is empty
 
         if isempty:  # empty check -> email if empty
-            logging.error("The file is empty")
+            logging.error("The File is Empty")
             self.error = "The File is Empty"
             B = False
             return B
         else:
-            logging.info("the file isnt not empty")
+            logging.info("The File is not Empty")
             self.df = pd.read_csv(self.file)
             A = self.type_check(self.df)  # type check
-            return A  # function must return true
+            return A  # function must return true 
+
+
+
+
+
 
     def type_check(self, df):
         logging.info("Checking the data types of each columns")
@@ -44,7 +51,7 @@ class FileValidation:
                         continue
                     else:
                         logging.error(
-                            "The required data type: %s and cell data type %s" % (type_list[col_num], type(cell)))
+                            "The column data type: %s is not matching with the cell data type %s" % (type_list[col_num], type(cell)))
                         self.error = "Invalid Data Types"
                         return False
 
@@ -54,7 +61,7 @@ class FileValidation:
                     else:
 
                         logging.error(
-                            "The required data type: %s and cell data type %s" % (type_list[col_num], type(cell)))
+                            "The column data type: %s is not matching with the cell data type %s" % (type_list[col_num], type(cell)))
                         self.error = "Invalid Data Types"
                         return False
 
@@ -63,12 +70,12 @@ class FileValidation:
                         continue
                     else:
                         logging.error(
-                            "The required data type: %s and cell data type %s" % (type_list[col_num], type(cell)))
+                            "The column data type: %s is not matching with the cell data type %s" % (type_list[col_num], type(cell)))
                         self.error = "Invalid Data Types"
                         return False
 
                 else:
-                    logging.error("The required data type: %s and cell data type %s" % (type_list[col_num], type(cell)))
+                    logging.error("The column data type: %s is not matching with the cell data type %s" % (type_list[col_num], type(cell)))
                     self.error = "Invalid Data Types"
             col_num += 1
 
@@ -82,9 +89,9 @@ class FileValidation:
         df.fillna(config.NAN_REPLACE, inplace=True)
         return
 
-    def save_to_csv(self, outputfile):
+    def save_to_csv(self, outputfile): #saves the dataframe to csv files
         if self.df is not None:
-            logging.info("saving the Dateframe to an outputfile")
+            logging.info("Saving the dataframe to an outputfile")
             self.df.to_csv(outputfile, header=True)
         else:
             logging.error("The dataframe does not exist")
