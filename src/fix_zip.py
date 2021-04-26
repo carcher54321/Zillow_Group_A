@@ -13,10 +13,11 @@ class fix_zip:
         except Exception as e:
             logging.error('Failed loading data {}. {}'.format(fname, e))
             return False
+        logging.info(self.path + fname + ' loaded successfully')
         return d
 
     def match(self):
-        logging.info('Starting matching process')
+        logging.info('Starting zip code mapping process...')
         zip_lkp = self.load_data('zip_lookup.csv')
         ccw = self.load_data('cities_crosswalk.csv')
 
@@ -56,6 +57,7 @@ class fix_zip:
         out = pd.DataFrame(out)
         out.to_csv(self.path + 'not_found.csv', index=False)
         logging.info('Mapping process complete')
+        logging.info(str(len(out)) + ' records with no matching zip code')
         self.fill_missing()
 
     def fill_missing(self):
@@ -84,7 +86,7 @@ class fix_zip:
             ncw.loc[i] = r
 
         ncw.to_csv(self.path + 'new_cities_crosswalk.csv', index=False)
-        logging.info('State abbreviation fill complete')
+        logging.info('Full state name fill complete')
 
     def main(self):
         self.match()
