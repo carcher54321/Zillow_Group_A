@@ -51,8 +51,6 @@ def archive(file_name):
 
 
 def process_file(filename):
-    logging.basicConfig(filename=log_path(filename), level=logging.INFO, format='%(asctime)s %(message)s',
-                        datefmt='%m/%d/%Y %I:%M:%S %p::')
     filenames = get_data_filenames()
     file_name = match_filename(filenames, filename)
     EXTENSION = filename.split('.')[-1]
@@ -80,12 +78,19 @@ def process_file(filename):
 
 
 def main():
-    log_files = []
+    if not os.path.exists(os.path.join(ROOT, 'logs')):
+        os.mkdir(os.path.join(ROOT, 'logs'))
+    if not os.path.exists(OUT_PATH):
+        os.mkdir(OUT_PATH)
+    if not gmail_connect.has_password(config.EMAIL_SENDER):
+        gmail_connect.prompt_password()
+    logging.basicConfig(filename=log_path('test_log.csv'), level=logging.INFO, format='%(asctime)s %(message)s',
+                        datefmt='%m/%d/%Y %I:%M:%S %p::')
+    log_files = [os.path.join(os.path.join(ROOT, 'logs'), 'test_log.log')]
     success_filenames = []
     for fn in FILE_NAMES:
         rt = process_file(fn)
         if rt:
-            log_files.append(rt)
             success_filenames.append(fn)
     gmail_connect.sendEmail(EMAIL_SENDER, f'Successfully Validated {len(success_filenames)} Files',
                             f'{success_filenames} all validated successfully', EMAIL_RECIPIENTS, log_files)

@@ -13,13 +13,13 @@ DATA_PATH = os.path.join(ROOT, 'data')
 OUT_PATH = os.path.join(ROOT, 'output')
 FILE_NAMES = [
     'cities_crosswalk.csv',
-    'City_time_series.csv',
-    'County_time_series.csv',
+    # 'City_time_series.csv',
+    # 'County_time_series.csv',
     'CountyCrossWalk_Zillow.csv',
-    'Metro_time_series.csv',
-    'Neighborhood_time_series.csv',
+    # 'Metro_time_series.csv',
+    # 'Neighborhood_time_series.csv',
     'State_time_series.csv',
-    'Zip_time_series.csv'
+    # 'Zip_time_series.csv'
 ]
 NAN_REPLACE = 'Nan'
 DB_HOST = 'zillowa.c5djwvyj87zw.us-east-2.rds.amazonaws.com'

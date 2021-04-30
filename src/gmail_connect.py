@@ -14,11 +14,26 @@ def set_password(email, password):
     keyring.set_password('gmail', email, password)  # setting the password
 
 
+def has_password(address):
+    try:
+        keyring.get_password('gmail', address)
+    except Exception:
+        return False
+    else:
+        return True
+
+
+def prompt_password():
+    em = input('enter the email address to add to the keychain: ')
+    pw = input('enter that email\'s password: ')
+    keyring.set_password('gmail', em, pw)
+
+
 def sendEmail(sender, subject, body, recipients, attachments):
     def get_password():
         try:
             return keyring.get_password('gmail', sender)
-        except:
+        except Exception:
             raise SystemError(f'No password saved for email {sender}')
     if type(recipients) is str:
         RECIPIENTS.append(recipients)
@@ -62,6 +77,4 @@ def sendEmail(sender, subject, body, recipients, attachments):
 
 
 if __name__ == '__main__':
-    em = input('Enter the email to add to the keychain: ')
-    pw = input('Enter the password for that email: ')
-    keyring.set_password('gmail', em, pw)
+    prompt_password()
